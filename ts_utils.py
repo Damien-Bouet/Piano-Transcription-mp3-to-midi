@@ -35,7 +35,9 @@ def get_frequency(notes: Union[int, NDArray]):
 
 def convert_mp3_and_midi(mp3_file, midi_file, sr=22050, duration=5, ticks_per_beat=16, bpm=120, overlap_ratio=0.5, freq_resolution=0.5):
     ts, sr = mp3_to_ts(mp3_file, sr, duration=duration)
-
+    
+    midi = midi_to_image(midi_file, ticks_per_beat, bpm, duration)
+    
     # Original parameters
     hop = int(sr / (bpm * ticks_per_beat/60))
     nperseg = int(hop / (1 - overlap_ratio))
@@ -52,13 +54,16 @@ def convert_mp3_and_midi(mp3_file, midi_file, sr=22050, duration=5, ticks_per_be
 
     Zxx = np.abs(Sx)
     Zxx = Zxx.T
-    Zxx = Zxx[1:-1, :]
+    if Zxx.shape[0] > midi.shape[0]:
+        Zxx = Zxx[1:, :]
+    if Zxx.shape[0] > midi.shape[0]:
+        Zxx = Zxx[:-1, :]
+    if Zxx.shape[0] > midi.shape[0]:
+        raise RuntimeError("Error")
     fs = fs[1:-1]
     
     res = np.zeros((Zxx.shape[0], 88))
     for i, freq in enumerate(get_frequency(np.arange(1, 89))):        
         res[:, i] = Zxx[:, np.argmin(np.abs(fs-freq))]
 
-    midi = midi_to_image(midi_file, ticks_per_beat, bpm, duration)
-    
     return res, midi

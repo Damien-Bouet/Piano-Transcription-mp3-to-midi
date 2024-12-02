@@ -44,6 +44,7 @@ def midi_to_image(
     with_keybord=False,
     keyboard_offset=0,
     save_filename=None,
+    max_note_beats=8,
 ) -> NDArray:
     """
     Convert midi file into binary image
@@ -74,48 +75,79 @@ def midi_to_image(
         mid = mido.MidiFile(data)
         if ticks_per_beat is None:
             ticks_per_beat = mid.ticks_per_beat
-
         bpm = bpm or 120  # Default to 120 BPM
         sec_per_tick = 60 / (bpm * ticks_per_beat)
         
         # Calculate total time and initialize piano roll
         total_time = sum(msg.time for msg in mid)
-        
         max_time = int(total_time / sec_per_tick)
+        
+        # Determine piano roll size
         if duration is None:
             piano_roll = np.zeros((88, (max_time + 1)), dtype=np.uint8)
         else:
             piano_roll = np.zeros((88, int(duration / sec_per_tick)), dtype=np.uint8)
-    
+        
         # Track active notes
         active_notes = {}
-
+        
         # Iterate over MIDI messages
         time = 0
-        for msg in mid:
+        max_note_duration = max_note_beats * (60 / bpm) * ticks_per_beat
+        
+        for i, msg in enumerate(mid):
             time += msg.time / sec_per_tick  # Time in seconds
             
-            if msg.type == 'note_on' and msg.velocity > 0:  # Note starts
-                key = msg.note - 21
-                if 0 <= key < 88:
-                    active_notes[key] = time  # Record when the note starts
-            
-            elif msg.type in ['note_off', 'note_on'] and msg.velocity == 0:  # Note ends
-                key = msg.note - 21
-                if key in active_notes:
-                    start_time = active_notes.pop(key)
-                    start_pixel = int(start_time)
-                    end_pixel = int(time)
+            # Check and truncate any existing notes that exceed max duration
+            for key in list(active_notes.keys()):
+                note_info = active_notes[key]
+                note_duration = time - note_info['start_time']
+                
+                if max_note_duration is not None and note_duration > max_note_duration:
+                    # Truncate the note
+                    end_time = note_info['start_time'] + max_note_duration
+                    start_pixel = int(note_info['start_time'])
+                    end_pixel = int(end_time)
                     
-                    # Fill the range of pixels for the note duration
+                    # Extend piano roll if needed
                     if end_pixel >= piano_roll.shape[1]:
                         new_cols = end_pixel - piano_roll.shape[1] + 1
                         piano_roll = np.pad(piano_roll, ((0, 0), (0, new_cols)), mode='constant')
                     
+                    # Fill the range of pixels for the note duration
                     piano_roll[key, start_pixel:end_pixel] = 255
+                    
+                    # Remove the note from active notes
+                    del active_notes[key]
+            
+            if msg.type == 'note_on' and msg.velocity > 0:  # Note starts
+                key = msg.note - 21
+                if 0 <= key < 88:
+                    # Record when the note starts
+                    active_notes[key] = {'start_time': time}
+            
+            elif msg.type in ['note_off', 'note_on'] and msg.velocity == 0:  # Note ends
+                key = msg.note - 21
+                if key in active_notes:
+                    note_info = active_notes.pop(key)
+                    start_time = note_info['start_time']
+                    
+                    start_pixel = int(start_time)
+                    end_pixel = int(time)
+                    
+                    # Extend piano roll if needed
+                    if end_pixel >= piano_roll.shape[1]:
+                        new_cols = end_pixel - piano_roll.shape[1] + 1
+                        piano_roll = np.pad(piano_roll, ((0, 0), (0, new_cols)), mode='constant')
+                    
+                    # Fill the range of pixels for the note duration
+                    piano_roll[key, start_pixel:end_pixel] = 255
+            
+            # Break if we've exceeded desired duration
             if duration is not None and time >= piano_roll.shape[1]:
                 break
         
+        # Final duration and shape adjustment
         if duration is not None:
             final_shape = (88, min(int(duration / sec_per_tick), max_time+1))
             piano_roll = piano_roll[:, :final_shape[1]]  # Truncate if oversized
@@ -126,7 +158,7 @@ def midi_to_image(
         notes = piano_roll.T
     else:
         notes = data
-    print(np.max(notes))
+
     notes = (np.array(notes)/np.max(notes)).astype(np.int8)
     
     if not with_keybord:
@@ -136,7 +168,18 @@ def midi_to_image(
     if keyboard_offset:
         piano = np.vstack([piano, np.zeros((keyboard_offset, piano.shape[1]))])
 
-    wider_notes = np.zeros((notes.shape[0], piano.shape[1]))
+    wider_notes = get_wider_notes(notes, piano.shape[1])
+
+    res = np.vstack([piano, wider_notes*255]).astype(np.uint8)
+    if save_filename:        
+        img = Image.fromarray(res, mode="L")
+        img.save(save_filename)
+    
+    return Image.fromarray(res, mode="L")
+    
+
+def get_wider_notes(notes, width):
+    wider_notes = np.zeros((notes.shape[0], width))
     
     width_white_key = 13
 
@@ -161,10 +204,44 @@ def midi_to_image(
             wider_notes[:, int(count*width_white_key+5) : int(count*width_white_key+5) + 7] = notes[:,[n_c]]
             n_c += 1
 
-    res = np.vstack([piano, wider_notes*255]).astype(np.uint8)
+    return wider_notes
+
+
+def midis_comparison(target, preds, keyboard_offset=0, save_filename=None, target_color=(0, 0.5, 1), preds_color=(1, 0.8, 0), correct_color=(0, 0.9, 0), ):
+
+    notes1 = (np.array(target)/np.max(target)).astype(np.int8)
+    notes2 = (np.array(preds)/np.max(preds)).astype(np.int8)
+    
+    piano = draw_piano()
+    if keyboard_offset:
+        piano = np.vstack([piano, np.zeros((keyboard_offset, piano.shape[1]))]).T
+
+    wider_notes1 = get_wider_notes(notes1, piano.shape[1]).astype(int)
+    wider_notes2 = get_wider_notes(notes2, piano.shape[1]).astype(int)
+
+    print(wider_notes1.shape, wider_notes2.shape)
+
+    result_image = np.zeros((wider_notes1.shape[0], wider_notes1.shape[1], 3), dtype=np.float32)
+
+    # Where both are white (255): Green
+    both_white = (wider_notes1 == 1) & (wider_notes2 == 1)
+    result_image[both_white] = correct_color
+
+    # Where only the first is white: Blue
+    only_first_white = (wider_notes1 == 1) & (wider_notes2 != 1)
+    result_image[only_first_white] = target_color
+
+    # Where only the second is white: Red
+    only_second_white = (wider_notes1 != 1) & (wider_notes2 == 1)
+    result_image[only_second_white] = preds_color
+
+    res = np.vstack([np.stack([piano]*3, axis=2), result_image*255]).astype(np.uint8)
+
+    # Convert the result array to an image
+    img = Image.fromarray(res, mode="RGB")
+    img.save("merged_image.png")
     if save_filename:        
         img = Image.fromarray(res, mode="L")
         img.save(save_filename)
     
-    return Image.fromarray(res, mode="L")
-    
+    return Image.fromarray(res, mode="RGB")
