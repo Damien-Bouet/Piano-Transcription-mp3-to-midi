@@ -1,0 +1,21 @@
+{
+    "roll_depth": 2,
+    "n_train": 13,
+    "n_test": 4,
+    "n_parameters": 84312,
+    "linear_layers.0": {
+        "type": "Linear",
+        "in_features": 440,
+        "out_features": 128
+    },
+    "linear_layers.1": {
+        "type": "Linear",
+        "in_features": 128,
+        "out_features": 128
+    },
+    "linear_layers.2": {
+        "type": "Linear",
+        "in_features": 128,
+        "out_features": 88
+    }
+}
