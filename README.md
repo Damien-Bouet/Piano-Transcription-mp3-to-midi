@@ -1,6 +1,6 @@
 # Piano Automatic Transcription : From mp3 sound to music sheet partition
 
-This project aims to explore the ways to convert mp3 solo music into midi file (which can be converted into music sheet partition with traditional software).
+This project aims to explore the ways to convert mp3 solo piano into midi file (which can be converted into music sheet partition with traditional software).
 
 ![Schema of architecture](img/schema.png)
 
