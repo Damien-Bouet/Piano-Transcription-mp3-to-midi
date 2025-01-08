@@ -18,3 +18,6 @@ I used `scipy.signal.ShortTimeFFT` to compute the STFTs.
 
 ## 3. Training a `pytorch` CNN+Dense network to predict the notes
 <img src="img/model.png" alt="Model" style="width:70%;">
+
+## 4. Example of test prediction
+<img src="img/test_prediction.png" alt="Test prediction" style="width:70%;">
