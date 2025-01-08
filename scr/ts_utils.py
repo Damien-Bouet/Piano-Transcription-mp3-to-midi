@@ -5,11 +5,8 @@ from numpy.typing import NDArray
 import scr.meltysynth as ms
 
 
-from IPython.display import Audio
-import matplotlib.pyplot as plt
 from numpy.fft import rfft, rfftfreq
-from scipy.signal import get_window, ShortTimeFFT
-from scipy.signal.windows import gaussian
+from scipy.signal import ShortTimeFFT
 import numpy as np
 
 
