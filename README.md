@@ -6,6 +6,7 @@ This project aims to explore the ways to convert mp3 solo piano into midi file (
 
 ---
 # What it is doing :
+The pipeline is detailed in the notebooks, from the dataset preprocessing to the training and testing.
 
 ## 1. Creation and augmentation of the dataset
 I used in this project a dataset of simple piano songs which can be found on ![Kaggle](https://www.kaggle.com/datasets/kamilain/simple-midis).
