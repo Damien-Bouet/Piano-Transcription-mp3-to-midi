@@ -6,7 +6,7 @@ import scr.meltysynth as ms
 
 
 from numpy.fft import rfft, rfftfreq
-from scipy.signal import ShortTimeFFT
+from scipy.signal import ShortTimeFFT, get_window
 import numpy as np
 
 
@@ -44,9 +44,9 @@ def create_dataset_with_stft(mp3_file, midi_file, midi_shift=0, sr=22050, durati
     hop = int(sr / (bpm * ticks_per_beat/60))
     nperseg = int(hop / (1 - overlap_ratio))   # 5512
     
-    # win = get_window('hann', nperseg)
+    win = get_window('hann', nperseg)
     # win = gaussian(nperseg, std=nperseg//10, sym=True)
-    win = np.ones(nperseg)  # Rectangle window (flat)
+    # win = np.ones(nperseg)  # Rectangle window (flat)
 
     # Create ShortTimeFFT object
     SFT = ShortTimeFFT(win, hop, fs=sr, mfft=int(sr/freq_resolution))
@@ -140,7 +140,7 @@ def create_dataset_with_cqt(
     
     # FFT_HOP = 256
     FFT_HOP = int(sr / (bpm * ticks_per_beat/60))
-    CONTOURS_BINS_PER_SEMITONE = 5
+    CONTOURS_BINS_PER_SEMITONE = 1
     ANNOTATIONS_BASE_FREQUENCY = 27.5  # lowest key on a piano
     ANNOTATIONS_N_SEMITONES = 88  # number of piano keys
     AUDIO_SAMPLE_RATE = 22050    
